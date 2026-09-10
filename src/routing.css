@@ -1,0 +1,22 @@
+.notice-banner { margin-bottom: 14px; padding: 10px 12px; border-radius: 9px; color: #aee9c6; border: 1px solid #28553b; background: #102019; font-size: 12px; cursor: pointer; }
+.routing-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 14px; align-items: start; }
+.profile-list-panel { overflow: hidden; }
+.profile-list { max-height: calc(100vh - 190px); overflow: auto; }
+.profile-item { width: 100%; min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 0; border-bottom: 1px solid #1c232d; background: transparent; color: #c9d1dc; text-align: left; }
+.profile-item:hover { background: #141a22; }
+.profile-item.selected { background: #182130; box-shadow: inset 3px 0 0 #526cff; }
+.profile-item strong, .profile-item span { display: block; }
+.profile-item strong { font-size: 12px; }
+.profile-item span { margin-top: 4px; color: #778397; font-size: 10px; }
+.routing-editor { min-width: 0; }
+.routing-fields { display: grid; grid-template-columns: minmax(220px,1fr) 170px 150px; gap: 10px; flex: 1; }
+.routing-fields label { display: grid; gap: 5px; color: #778397; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.routing-fields input, .routing-fields select, .routing-actions select { min-height: 34px; border-radius: 8px; border: 1px solid #2b3542; background: #0b1016; color: #e9edf4; padding: 0 9px; outline: none; }
+.routing-fields input:focus, .routing-fields select:focus, .routing-actions select:focus { border-color: #526cff; box-shadow: 0 0 0 3px rgba(82,108,255,.1); }
+.routing-actions { display: flex; align-items: end; gap: 8px; }
+.rule-add { grid-template-columns: minmax(0,1fr) 30px; }
+.empty-editor { padding: 28px; color: #718095; }
+@media (max-width: 1180px) {
+  .routing-layout { grid-template-columns: 220px minmax(0,1fr); }
+  .routing-fields { grid-template-columns: 1fr 1fr; }
+}
