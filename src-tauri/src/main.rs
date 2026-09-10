@@ -1,4 +1,5 @@
 mod backend;
+mod gateway;
 mod targets;
 
 use backend::{
@@ -12,6 +13,13 @@ use backend::{
     MonitorState,
     RoutingProfile,
     TrafficRow,
+};
+use gateway::{
+    gateway_connections,
+    gateway_status,
+    start_local_gateway,
+    stop_local_gateway,
+    GatewayState,
 };
 use std::time::Instant;
 use targets::{get_process_target_details, get_process_targets};
@@ -81,6 +89,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(MonitorState::default())
+        .manage(GatewayState::default())
         .invoke_handler(tauri::generate_handler![
             get_status_async,
             list_routing_profiles_async,
@@ -92,10 +101,15 @@ fn main() {
             get_traffic_snapshot_async,
             get_process_targets,
             get_process_target_details,
+            start_local_gateway,
+            stop_local_gateway,
+            gateway_status,
+            gateway_connections,
             control_v2rayu,
         ])
         .setup(|_| {
             eprintln!("[V2Proxy][BOOT] Tauri setup complete · webview event loop starting");
+            eprintln!("[V2Proxy][GATEWAY] opt-in gateway available at 127.0.0.1:1097 -> 127.0.0.1:1087");
             Ok(())
         })
         .run(tauri::generate_context!())
