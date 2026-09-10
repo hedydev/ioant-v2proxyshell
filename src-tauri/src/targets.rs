@@ -47,11 +47,12 @@ fn endpoint(value: &str) -> (String, u16) {
 }
 
 fn established_connections(pid: u32, numeric: bool) -> Result<Vec<(String, String)>, String> {
+    let pid_text = pid.to_string();
     let mut args = vec!["-P"];
     if numeric {
         args.push("-n");
     }
-    args.extend(["-a", "-p", &pid.to_string(), "-iTCP", "-sTCP:ESTABLISHED"]);
+    args.extend(["-a", "-p", pid_text.as_str(), "-iTCP", "-sTCP:ESTABLISHED"]);
     let output = Command::new("lsof")
         .args(args)
         .output()
@@ -120,15 +121,16 @@ fn read_tail(path: &Path) -> Result<String, String> {
         file.seek(SeekFrom::Start(size - MAX_LOG_BYTES))
             .map_err(|e| e.to_string())?;
     }
-    let mut raw = String::new();
-    file.read_to_string(&mut raw).map_err(|e| e.to_string())?;
-    Ok(raw)
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 fn parse_port_after(line: &str, marker: &str) -> Option<u16> {
-    let rest = line.split_once(marker)?.1;
-    let token = rest.split_whitespace().next()?.trim_matches(|c| c == '[' || c == ']');
-    token.rsplit_once(':')?.1.parse().ok()
+    let rest = line.split_once(marker)?.1.trim_start();
+    let token = rest.split_whitespace().next()?;
+    let digits: String = token.chars().take_while(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() { None } else { digits.parse().ok() }
 }
 
 fn parse_xray_target(line: &str) -> Option<(String, String)> {
