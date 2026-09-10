@@ -1,4 +1,5 @@
 mod backend;
+mod targets;
 
 use backend::{
     activate_routing_profile,
@@ -13,6 +14,7 @@ use backend::{
     TrafficRow,
 };
 use std::time::Instant;
+use targets::get_process_targets;
 
 fn log_result<T>(name: &str, started: Instant, result: &Result<T, String>) {
     match result {
@@ -88,6 +90,7 @@ fn main() {
             delete_routing_profile,
             set_proxy_mode,
             get_traffic_snapshot_async,
+            get_process_targets,
             control_v2rayu,
         ])
         .setup(|_| {
