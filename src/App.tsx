@@ -28,6 +28,21 @@ type TrafficRow = {
   direct_targets: string[];
 };
 
+type ProcessTarget = {
+  domain?: string | null;
+  ip?: string | null;
+  port: number;
+  route: string;
+  source: string;
+  socket: string;
+};
+
+type ProcessTargetDetails = {
+  targets: ProcessTarget[];
+  xray_log?: string | null;
+  xray_log_status: string;
+};
+
 type RoutingProfile = {
   uuid: string;
   name: string;
@@ -49,6 +64,11 @@ const formatRate = (value: number) => {
   let i = 0;
   while (n >= 1024 && i < units.length - 1) { n /= 1024; i += 1; }
   return `${n.toFixed(n >= 100 ? 0 : n >= 10 ? 1 : 2)} ${units[i]}`;
+};
+
+const targetLabel = (target: ProcessTarget) => {
+  const host = target.domain || target.ip || 'local proxy';
+  return `${host}:${target.port}`;
 };
 
 function RuleList({ title, bucket, values, onChange }: { title: string; bucket: RouteBucket; values: string[]; onChange: (bucket: RouteBucket, values: string[]) => void }) {
@@ -81,8 +101,10 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [trafficSampling, setTrafficSampling] = useState(false);
   const [visibleModes, setVisibleModes] = useState<Set<TrafficMode>>(new Set(TRAFFIC_MODES));
-  const [targetDetail, setTargetDetail] = useState<{ row: TrafficRow; targets: string[]; loading: boolean } | null>(null);
+  const [targetDetail, setTargetDetail] = useState<{ row: TrafficRow; details: ProcessTargetDetails | null; loading: boolean } | null>(null);
+  const [targetCache, setTargetCache] = useState<Record<number, ProcessTargetDetails>>({});
 
   const loadStatus = async () => {
     try { setStatus(await invoke<AppStatus>('get_status_async')); setError(''); }
@@ -101,8 +123,10 @@ export default function App() {
   };
 
   const loadTraffic = async () => {
+    setTrafficSampling(true);
     try { setTraffic(await invoke<TrafficRow[]>('get_traffic_snapshot_async')); }
     catch (e) { setError(String(e)); }
+    finally { setTrafficSampling(false); }
   };
 
   useEffect(() => {
@@ -126,13 +150,15 @@ export default function App() {
   };
 
   const openTargets = async (row: TrafficRow) => {
-    setTargetDetail({ row, targets: row.direct_targets, loading: true });
+    const cached = targetCache[row.pid] ?? null;
+    setTargetDetail({ row, details: cached, loading: true });
     setError('');
     try {
-      const targets = await invoke<string[]>('get_process_targets', { pid: row.pid });
-      setTargetDetail({ row, targets, loading: false });
+      const details = await invoke<ProcessTargetDetails>('get_process_target_details', { pid: row.pid });
+      setTargetCache((current) => ({ ...current, [row.pid]: details }));
+      setTargetDetail({ row, details, loading: false });
     } catch (e) {
-      setTargetDetail({ row, targets: row.direct_targets, loading: false });
+      setTargetDetail({ row, details: cached, loading: false });
       setError(String(e));
     }
   };
@@ -228,20 +254,21 @@ export default function App() {
       {tab === 'connections' && (targetDetail ? <section className="panel target-detail-page">
         <div className="target-detail-head">
           <button className="secondary" onClick={() => setTargetDetail(null)}><ArrowLeft size={15}/>Back</button>
-          <div><div className="eyebrow">PROCESS TARGETS</div><h2>{targetDetail.row.process}</h2><p>PID {targetDetail.row.pid} · {targetDetail.row.mode} · {targetDetail.targets.length} targets</p></div>
+          <div><div className="eyebrow">PROCESS TARGETS</div><h2>{targetDetail.row.process}</h2><p>PID {targetDetail.row.pid} · {targetDetail.row.mode} · {targetDetail.details?.targets.length ?? 0} targets</p></div>
         </div>
         <div className="target-detail-summary"><span className={`mode mode-${targetDetail.row.mode.toLowerCase()}`}>{targetDetail.row.mode}</span><span>↓ {formatRate(targetDetail.row.down_bps)}</span><span>↑ {formatRate(targetDetail.row.up_bps)}</span><span>PX {targetDetail.row.proxy_connections}</span><span>DIR {targetDetail.row.direct_connections}</span></div>
+        <div className={`target-resolution-status ${targetDetail.loading ? 'loading' : ''}`}><span className="sampling-spinner"/><div><strong>{targetDetail.loading ? 'Resolving target evidence…' : 'Target evidence ready'}</strong><span>{targetDetail.loading ? 'Matching socket endpoints, DNS names and recent Xray access-log entries.' : (targetDetail.details?.xray_log_status || 'Socket/DNS evidence only.')}</span></div></div>
         <div className="target-list">
-          {targetDetail.loading && <div className="empty">Resolving domains…</div>}
-          {!targetDetail.loading && targetDetail.targets.map((target, index) => <div className="target-detail-row" key={`${target}-${index}`}><span className="target-index">{index + 1}</span><code>{target}</code></div>)}
-          {!targetDetail.loading && !targetDetail.targets.length && <div className="empty">No established targets for this process.</div>}
+          {targetDetail.loading && !targetDetail.details && <div className="empty">Collecting socket and Xray evidence…</div>}
+          {targetDetail.details?.targets.map((target, index) => <div className="target-detail-row rich" key={`${target.socket}-${index}`}><span className="target-index">{index + 1}</span><div className="target-evidence"><div className="target-domain"><code>{targetLabel(target)}</code><span className={`route-badge ${target.route.toLowerCase().includes('direct') ? 'direct' : target.route.toLowerCase().includes('proxy') ? 'proxy' : ''}`}>{target.route}</span></div><div className="target-meta">{target.domain && target.ip ? <span>IP {target.ip}</span> : null}<span>Source {target.source}</span><span className="mono">{target.socket}</span></div></div></div>)}
+          {!targetDetail.loading && !(targetDetail.details?.targets.length) && <div className="empty">No established targets for this process.</div>}
         </div>
       </section> : <>
         <section className="stats-grid"><div className="stat"><span>Download</span><strong>{formatRate(totalDown)}</strong></div><div className="stat"><span>Upload</span><strong>{formatRate(totalUp)}</strong></div><div className="stat"><span>Processes</span><strong>{traffic.length}</strong></div><div className="stat warning"><span>Direct / mixed</span><strong>{publicBypass}</strong></div></section>
-        <section className="panel">
-          <div className="panel-head connection-panel-head"><div><h2>Live connections</h2><p>Per-process traffic. Select one or more connection modes to display.</p></div><span className="live-pill"><span/>Live</span></div>
+        <section className={`panel ${trafficSampling ? 'sampling' : ''}`}>
+          <div className="panel-head connection-panel-head"><div><h2>Live connections</h2><p>Per-process traffic. Select one or more connection modes to display.</p></div><span className={`live-pill ${trafficSampling ? 'sampling' : ''}`}><span/>{trafficSampling ? 'Sampling…' : 'Live'}</span></div>
           <div className="mode-filter">{TRAFFIC_MODES.map((mode) => <button key={mode} className={visibleModes.has(mode) ? 'selected' : ''} onClick={() => toggleMode(mode)}><span className={`mode mode-${mode.toLowerCase()}`}>{mode}</span><span className="filter-check">{visibleModes.has(mode) ? '✓' : ''}</span></button>)}</div>
-          <div className="traffic-table"><div className="traffic-row header"><span>Process</span><span>Mode</span><span>Down</span><span>Up</span><span>Targets</span></div>{filteredTraffic.map((row) => <div className="traffic-row" key={`${row.pid}-${row.process}`}><span className="process"><strong>{row.process}</strong><small>PID {row.pid} · PX {row.proxy_connections} · DIR {row.direct_connections}</small></span><span><span className={`mode mode-${row.mode.toLowerCase()}`}>{row.mode}</span></span><span className="mono">{formatRate(row.down_bps)}</span><span className="mono">{formatRate(row.up_bps)}</span><span className="target target-with-action"><span className="mono" title={row.direct_targets.join(', ')}>{row.direct_targets[0] || '—'}{row.direct_targets.length > 1 ? ` +${row.direct_targets.length - 1}` : ''}</span><button className="icon-button" onClick={() => openTargets(row)} title="View all targets"><Eye size={14}/></button></span></div>)}</div>
+          <div className="traffic-table"><div className="traffic-row header"><span>Process</span><span>Mode</span><span>Down</span><span>Up</span><span>Targets</span></div>{filteredTraffic.map((row) => { const cached = targetCache[row.pid]; const preview = cached?.targets[0] ? targetLabel(cached.targets[0]) : row.direct_targets[0] || (row.proxy_connections > 0 ? 'Inspect Xray targets' : '—'); const count = cached?.targets.length ?? row.direct_targets.length; return <div className="traffic-row" key={`${row.pid}-${row.process}`}><span className="process"><strong>{row.process}</strong><small>PID {row.pid} · PX {row.proxy_connections} · DIR {row.direct_connections}</small></span><span><span className={`mode mode-${row.mode.toLowerCase()}`}>{row.mode}</span></span><span className="mono">{formatRate(row.down_bps)}</span><span className="mono">{formatRate(row.up_bps)}</span><span className="target target-with-action"><span className="mono" title={preview}>{preview}{count > 1 ? ` +${count - 1}` : ''}</span><button className="icon-button" onClick={() => openTargets(row)} title="Resolve and view all targets"><Eye size={14}/></button></span></div>; })}</div>
         </section>
       </>)}
 
