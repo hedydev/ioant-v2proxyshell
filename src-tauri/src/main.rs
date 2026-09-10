@@ -14,7 +14,7 @@ use backend::{
     TrafficRow,
 };
 use std::time::Instant;
-use targets::get_process_targets;
+use targets::{get_process_target_details, get_process_targets};
 
 fn log_result<T>(name: &str, started: Instant, result: &Result<T, String>) {
     match result {
@@ -91,6 +91,7 @@ fn main() {
             set_proxy_mode,
             get_traffic_snapshot_async,
             get_process_targets,
+            get_process_target_details,
             control_v2rayu,
         ])
         .setup(|_| {
