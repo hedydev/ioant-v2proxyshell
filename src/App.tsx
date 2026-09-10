@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Activity, CirclePause, CirclePlay, Network, RefreshCw, Route, Settings2, ShieldCheck, Trash2, Plus, CheckCircle2 } from 'lucide-react';
+import { Activity, ArrowLeft, CheckCircle2, CirclePause, CirclePlay, Eye, Network, Plus, RefreshCw, Route, Settings2, ShieldCheck, Trash2 } from 'lucide-react';
 
 type TrafficMode = 'PROXY' | 'DIRECT' | 'MIXED' | 'LOCAL' | 'SYSTEM' | 'XRAY';
 type RouteBucket = 'direct' | 'proxy' | 'block';
@@ -41,6 +41,8 @@ type RoutingProfile = {
   active: boolean;
 };
 
+const TRAFFIC_MODES: TrafficMode[] = ['PROXY', 'DIRECT', 'MIXED', 'LOCAL', 'SYSTEM', 'XRAY'];
+
 const formatRate = (value: number) => {
   const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
   let n = value;
@@ -79,6 +81,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [visibleModes, setVisibleModes] = useState<Set<TrafficMode>>(new Set(TRAFFIC_MODES));
+  const [targetDetail, setTargetDetail] = useState<{ row: TrafficRow; targets: string[]; loading: boolean } | null>(null);
 
   const loadStatus = async () => {
     try { setStatus(await invoke<AppStatus>('get_status_async')); setError(''); }
@@ -111,6 +115,27 @@ export default function App() {
   const totalDown = useMemo(() => traffic.reduce((s, x) => s + x.down_bps, 0), [traffic]);
   const totalUp = useMemo(() => traffic.reduce((s, x) => s + x.up_bps, 0), [traffic]);
   const publicBypass = useMemo(() => traffic.filter((x) => x.mode === 'DIRECT' || x.mode === 'MIXED').length, [traffic]);
+  const filteredTraffic = useMemo(() => traffic.filter((row) => visibleModes.has(row.mode)), [traffic, visibleModes]);
+
+  const toggleMode = (mode: TrafficMode) => {
+    setVisibleModes((current) => {
+      const next = new Set(current);
+      if (next.has(mode)) next.delete(mode); else next.add(mode);
+      return next;
+    });
+  };
+
+  const openTargets = async (row: TrafficRow) => {
+    setTargetDetail({ row, targets: row.direct_targets, loading: true });
+    setError('');
+    try {
+      const targets = await invoke<string[]>('get_process_targets', { pid: row.pid });
+      setTargetDetail({ row, targets, loading: false });
+    } catch (e) {
+      setTargetDetail({ row, targets: row.direct_targets, loading: false });
+      setError(String(e));
+    }
+  };
 
   const chooseProfile = (uuid: string) => {
     if (dirty && !window.confirm('Discard unsaved routing edits?')) return;
@@ -188,24 +213,37 @@ export default function App() {
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><Network size={18}/></div><div><strong>V2Proxy Shell</strong><span>V2rayU control shell</span></div></div>
       <nav>
-        <button className={tab === 'connections' ? 'active' : ''} onClick={() => setTab('connections')}><Activity size={17}/>Connections</button>
-        <button className={tab === 'routing' ? 'active' : ''} onClick={() => setTab('routing')}><Route size={17}/>Routing</button>
-        <button className={tab === 'control' ? 'active' : ''} onClick={() => setTab('control')}><Settings2 size={17}/>Control</button>
+        <button className={tab === 'connections' ? 'active' : ''} onClick={() => { setTab('connections'); setTargetDetail(null); }}><Activity size={17}/>Connections</button>
+        <button className={tab === 'routing' ? 'active' : ''} onClick={() => { setTab('routing'); setTargetDetail(null); }}><Route size={17}/>Routing</button>
+        <button className={tab === 'control' ? 'active' : ''} onClick={() => { setTab('control'); setTargetDetail(null); }}><Settings2 size={17}/>Control</button>
       </nav>
       <div className="side-status"><span className={`status-dot ${status?.xray_running ? 'online' : ''}`}/><div><strong>{status?.xray_running ? 'Xray online' : 'Xray offline'}</strong><span>{status?.proxy_mode || 'Unknown mode'}</span></div></div>
     </aside>
 
     <main>
-      <header className="topbar"><div><div className="eyebrow">LOCAL MAC CONTROL</div><h1>{tab === 'connections' ? 'Network activity' : tab === 'routing' ? 'Routing' : 'Runtime control'}</h1></div><button className="secondary" onClick={() => { loadStatus(); loadProfiles(); loadTraffic(); }}><RefreshCw size={15}/>Refresh</button></header>
+      <header className="topbar"><div><div className="eyebrow">LOCAL MAC CONTROL</div><h1>{tab === 'connections' ? (targetDetail ? 'Connection targets' : 'Network activity') : tab === 'routing' ? 'Routing' : 'Runtime control'}</h1></div><button className="secondary" onClick={() => { loadStatus(); loadProfiles(); loadTraffic(); }}><RefreshCw size={15}/>Refresh</button></header>
       {error && <div className="error-banner">{error}</div>}
       {message && <div className="notice-banner" onClick={() => setMessage('')}>{message}</div>}
 
-      {tab === 'connections' && <>
+      {tab === 'connections' && (targetDetail ? <section className="panel target-detail-page">
+        <div className="target-detail-head">
+          <button className="secondary" onClick={() => setTargetDetail(null)}><ArrowLeft size={15}/>Back</button>
+          <div><div className="eyebrow">PROCESS TARGETS</div><h2>{targetDetail.row.process}</h2><p>PID {targetDetail.row.pid} · {targetDetail.row.mode} · {targetDetail.targets.length} targets</p></div>
+        </div>
+        <div className="target-detail-summary"><span className={`mode mode-${targetDetail.row.mode.toLowerCase()}`}>{targetDetail.row.mode}</span><span>↓ {formatRate(targetDetail.row.down_bps)}</span><span>↑ {formatRate(targetDetail.row.up_bps)}</span><span>PX {targetDetail.row.proxy_connections}</span><span>DIR {targetDetail.row.direct_connections}</span></div>
+        <div className="target-list">
+          {targetDetail.loading && <div className="empty">Resolving domains…</div>}
+          {!targetDetail.loading && targetDetail.targets.map((target, index) => <div className="target-detail-row" key={`${target}-${index}`}><span className="target-index">{index + 1}</span><code>{target}</code></div>)}
+          {!targetDetail.loading && !targetDetail.targets.length && <div className="empty">No established targets for this process.</div>}
+        </div>
+      </section> : <>
         <section className="stats-grid"><div className="stat"><span>Download</span><strong>{formatRate(totalDown)}</strong></div><div className="stat"><span>Upload</span><strong>{formatRate(totalUp)}</strong></div><div className="stat"><span>Processes</span><strong>{traffic.length}</strong></div><div className="stat warning"><span>Direct / mixed</span><strong>{publicBypass}</strong></div></section>
-        <section className="panel"><div className="panel-head"><div><h2>Live connections</h2><p>Per-process nettop traffic with observed proxy/direct socket path.</p></div><span className="live-pill"><span/>Live</span></div>
-          <div className="traffic-table"><div className="traffic-row header"><span>Process</span><span>Mode</span><span>Down</span><span>Up</span><span>Direct target</span></div>{traffic.map((row) => <div className="traffic-row" key={`${row.pid}-${row.process}`}><span className="process"><strong>{row.process}</strong><small>PID {row.pid} · PX {row.proxy_connections} · DIR {row.direct_connections}</small></span><span><span className={`mode mode-${row.mode.toLowerCase()}`}>{row.mode}</span></span><span className="mono">{formatRate(row.down_bps)}</span><span className="mono">{formatRate(row.up_bps)}</span><span className="target mono" title={row.direct_targets.join(', ')}>{row.direct_targets.join(', ') || '—'}</span></div>)}</div>
+        <section className="panel">
+          <div className="panel-head connection-panel-head"><div><h2>Live connections</h2><p>Per-process traffic. Select one or more connection modes to display.</p></div><span className="live-pill"><span/>Live</span></div>
+          <div className="mode-filter">{TRAFFIC_MODES.map((mode) => <button key={mode} className={visibleModes.has(mode) ? 'selected' : ''} onClick={() => toggleMode(mode)}><span className={`mode mode-${mode.toLowerCase()}`}>{mode}</span><span className="filter-check">{visibleModes.has(mode) ? '✓' : ''}</span></button>)}</div>
+          <div className="traffic-table"><div className="traffic-row header"><span>Process</span><span>Mode</span><span>Down</span><span>Up</span><span>Targets</span></div>{filteredTraffic.map((row) => <div className="traffic-row" key={`${row.pid}-${row.process}`}><span className="process"><strong>{row.process}</strong><small>PID {row.pid} · PX {row.proxy_connections} · DIR {row.direct_connections}</small></span><span><span className={`mode mode-${row.mode.toLowerCase()}`}>{row.mode}</span></span><span className="mono">{formatRate(row.down_bps)}</span><span className="mono">{formatRate(row.up_bps)}</span><span className="target target-with-action"><span className="mono" title={row.direct_targets.join(', ')}>{row.direct_targets[0] || '—'}{row.direct_targets.length > 1 ? ` +${row.direct_targets.length - 1}` : ''}</span><button className="icon-button" onClick={() => openTargets(row)} title="View all targets"><Eye size={14}/></button></span></div>)}</div>
         </section>
-      </>}
+      </>)}
 
       {tab === 'routing' && <div className="routing-layout">
         <section className="panel profile-list-panel"><div className="panel-head"><div><h2>Routing profiles</h2><p>{status?.routing_db_path || 'V2rayU database'}</p></div><button className="icon-button" onClick={createProfile} disabled={busy} title="New routing"><Plus size={15}/></button></div><div className="profile-list">{profiles.map((p) => <button key={p.uuid} className={`profile-item ${p.uuid === selectedUuid ? 'selected' : ''}`} onClick={() => chooseProfile(p.uuid)}><div><strong>{p.remark || p.name || 'Untitled routing'}</strong><span>{p.domain_strategy} · {p.domain_matcher}</span></div>{p.active && <CheckCircle2 size={16}/>}</button>)}</div></section>
