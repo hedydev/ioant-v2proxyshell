@@ -1,0 +1,128 @@
+.panel.sampling {
+  box-shadow: inset 0 1px 0 rgba(130, 157, 255, .16);
+}
+
+.live-pill.sampling {
+  color: #c9d4ff;
+}
+
+.live-pill.sampling > span {
+  animation: sampling-pulse .8s ease-in-out infinite alternate;
+}
+
+.target-resolution-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 17px;
+  border-bottom: 1px solid #212834;
+  background: #0e141c;
+  color: #99a5b5;
+}
+
+.target-resolution-status > div > strong,
+.target-resolution-status > div > span {
+  display: block;
+}
+
+.target-resolution-status > div > strong {
+  color: #d4dbe5;
+  font-size: 11px;
+}
+
+.target-resolution-status > div > span {
+  margin-top: 3px;
+  color: #778395;
+  font-size: 10px;
+}
+
+.sampling-spinner {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  border: 2px solid #2b3442;
+  border-top-color: #829dff;
+  border-radius: 50%;
+}
+
+.target-resolution-status.loading .sampling-spinner {
+  animation: sampling-spin .7s linear infinite;
+}
+
+.target-resolution-status:not(.loading) .sampling-spinner {
+  border-color: #2c7050;
+  border-top-color: #66dfa0;
+}
+
+.target-detail-row.rich {
+  min-height: 64px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  align-items: start;
+}
+
+.target-evidence {
+  min-width: 0;
+}
+
+.target-domain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.target-domain code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin-top: 5px;
+  color: #6f7b8d;
+  font-size: 10px;
+}
+
+.target-meta .mono {
+  word-break: break-all;
+}
+
+.route-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 19px;
+  padding: 0 6px;
+  border: 1px solid #343d49;
+  border-radius: 999px;
+  background: #171c23;
+  color: #98a2b0;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.route-badge.proxy {
+  border-color: #205d40;
+  background: #10261c;
+  color: #66df9e;
+}
+
+.route-badge.direct {
+  border-color: #642c32;
+  background: #291318;
+  color: #ff858d;
+}
+
+@keyframes sampling-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sampling-pulse {
+  from { transform: scale(.8); opacity: .45; }
+  to { transform: scale(1.35); opacity: 1; }
+}
