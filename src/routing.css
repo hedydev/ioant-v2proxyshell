@@ -15,8 +15,20 @@
 .routing-fields input:focus, .routing-fields select:focus, .routing-actions select:focus { border-color: #526cff; box-shadow: 0 0 0 3px rgba(82,108,255,.1); }
 .routing-actions { display: flex; align-items: end; gap: 8px; }
 .rule-add { grid-template-columns: minmax(0,1fr) 30px; }
+.rule-edit { width: 100%; min-width: 0; border: 1px solid transparent; background: transparent; color: #cbd2dc; border-radius: 7px; padding: 6px 7px; font: 11px "SFMono-Regular", Menlo, Monaco, Consolas, monospace; outline: none; }
+.rule-edit:hover { border-color: #26313f; background: #111821; }
+.rule-edit:focus { border-color: #526cff; background: #0a0f15; box-shadow: 0 0 0 3px rgba(82,108,255,.1); }
 .empty-editor { padding: 28px; color: #718095; }
+.mode-section { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; border-bottom: 1px solid #212834; }
+.mode-section h3 { margin-top: 4px; }
+.mode-section p { margin-top: 5px; max-width: 620px; }
+.mode-switcher { display: inline-grid; grid-template-columns: repeat(4, minmax(70px, 1fr)); gap: 4px; padding: 4px; border: 1px solid #28313e; background: #0b1016; border-radius: 10px; }
+.mode-switcher button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: #7f8a9a; font-size: 11px; font-weight: 700; }
+.mode-switcher button:hover { color: #e6ebf2; background: #151c25; }
+.mode-switcher button.active { color: #fff; background: #526cff; box-shadow: 0 2px 8px rgba(82,108,255,.28); }
+.mode-switcher button:disabled { opacity: .48; cursor: default; }
 @media (max-width: 1180px) {
   .routing-layout { grid-template-columns: 220px minmax(0,1fr); }
   .routing-fields { grid-template-columns: 1fr 1fr; }
+  .mode-section { align-items: flex-start; flex-direction: column; }
 }
