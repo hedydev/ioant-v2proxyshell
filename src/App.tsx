@@ -81,13 +81,13 @@ export default function App() {
   const [error, setError] = useState('');
 
   const loadStatus = async () => {
-    try { setStatus(await invoke<AppStatus>('get_status')); setError(''); }
+    try { setStatus(await invoke<AppStatus>('get_status_async')); setError(''); }
     catch (e) { setError(String(e)); }
   };
 
   const loadProfiles = async () => {
     try {
-      const rows = await invoke<RoutingProfile[]>('list_routing_profiles');
+      const rows = await invoke<RoutingProfile[]>('list_routing_profiles_async');
       setProfiles(rows);
       const active = rows.find((x) => x.active);
       const chosen = rows.find((x) => x.uuid === selectedUuid) ?? active ?? rows[0];
@@ -97,7 +97,7 @@ export default function App() {
   };
 
   const loadTraffic = async () => {
-    try { setTraffic(await invoke<TrafficRow[]>('get_traffic_snapshot')); }
+    try { setTraffic(await invoke<TrafficRow[]>('get_traffic_snapshot_async')); }
     catch (e) { setError(String(e)); }
   };
 
